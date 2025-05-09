@@ -114,8 +114,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   png_handler.info_ptr = nullptr;
   png_handler.end_info_ptr = nullptr;
 
-  png_handler.png_ptr = png_create_read_struct
-    (PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+  png_handler.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
   if (!png_handler.png_ptr) {
     return 0;
   }
@@ -182,8 +181,58 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   png_set_gray_to_rgb(png_handler.png_ptr);
   png_set_expand(png_handler.png_ptr);
   png_set_packing(png_handler.png_ptr);
-  png_set_scale_16(png_handler.png_ptr);
+  
+  // strip from 16 to 8 bits or expand from 8 to 16 bits
+  if (bit_depth == 16) {
+    png_set_strip_16(png_handler.png_ptr);          
+  } else {
+    png_set_expand_16(png_handler.png_ptr);
+  }
+
   png_set_tRNS_to_alpha(png_handler.png_ptr);
+  png_set_interlace_handling(png_handler.png_ptr);
+
+  // Set the gamma correction for the image.
+  double screen_gamma = 2.0, default_file_gamma = 1.0;
+  png_set_gamma(png_handler.png_ptr, screen_gamma, default_file_gamma);
+  
+  // Set the background color to white.
+  png_color_16 background_color;
+  memset(&background_color, 0, sizeof(background_color));
+  if (png_get_valid(png_handler.png_ptr, png_handler.info_ptr, PNG_INFO_tRNS) || (color_type & PNG_COLOR_MASK_ALPHA)) {
+    if (color_type & PNG_COLOR_MASK_COLOR) {
+      background_color.red   = (bit_depth == 16 ? 65535 : 255);
+      background_color.green = (bit_depth == 16 ? 65535 : 255);
+      background_color.blue = (bit_depth == 16 ? 65535 : 255);
+      background_color.gray  = 0;
+    } else {
+      background_color.gray  = (bit_depth == 16 ? 65535 : 255);
+      background_color.red   = 0;
+      background_color.green = 0;
+      background_color.blue = 0;
+    }
+    png_set_background(png_handler.png_ptr, &background_color,
+                       PNG_BACKGROUND_GAMMA_FILE, 1, 1.0);
+  } else {
+    if (!(color_type & PNG_COLOR_MASK_ALPHA)) {
+      png_set_filler(png_handler.png_ptr, 0xFF, PNG_FILLER_AFTER);
+    }
+  }
+
+  if ((color_type & PNG_COLOR_MASK_COLOR) && 
+      !(png_get_valid(png_handler.png_ptr, png_handler.info_ptr, PNG_INFO_tRNS) ||
+        (color_type & PNG_COLOR_MASK_ALPHA))) {
+    png_set_rgb_to_gray(png_handler.png_ptr, 1, 0.2126, 0.7152);
+  }
+
+  if (color_type & PNG_COLOR_MASK_COLOR) {
+    png_set_bgr(png_handler.png_ptr);
+  }
+
+  if ( (color_type & PNG_COLOR_MASK_ALPHA) || !(png_get_valid(png_handler.png_ptr, png_handler.info_ptr, PNG_INFO_tRNS)) ) {
+    png_set_invert_alpha(png_handler.png_ptr);
+    png_set_swap_alpha(png_handler.png_ptr);
+  }
 
   int passes = png_set_interlace_handling(png_handler.png_ptr);
 
