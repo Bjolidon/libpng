@@ -42,9 +42,19 @@ $CXX $CXXFLAGS -std=c++11 -I. \
      -o $OUT/libpng_read_fuzzer \
      -lFuzzingEngine .libs/libpng16.a -lz
 
+# build libpng_colormap_fuzzer.
+$CXX $CXXFLAGS -std=c++11 -I. \
+     $SRC/libpng/contrib/oss-fuzz/libpng_colormap_fuzzer.cc \
+     -o $OUT/libpng_colormap_fuzzer \
+     -lFuzzingEngine .libs/libpng16.a -lz
+
 # add seed corpus.
 find $SRC/libpng -name "*.png" | grep -v crashers | \
      xargs zip $OUT/libpng_read_fuzzer_seed_corpus.zip
+
+# seed corpus for libpng_colormap_fuzzer.
+find $SRC/libpng -name "*.png" | grep -v crashers | \
+     xargs zip $OUT/libpng_colormap_fuzzer_seed_corpus.zip
 
 cp $SRC/libpng/contrib/oss-fuzz/*.dict \
      $SRC/libpng/contrib/oss-fuzz/*.options $OUT/
